@@ -1,5 +1,5 @@
-#ifndef SHUFFLER_H
-#define SHUFFLER_H
+#ifndef SHUFFLER_H_INCLUDED
+#define SHUFFLER_H_INCLUDED
 
 #include <vector>
 #include "Operation.h"
@@ -9,4 +9,4 @@ public:
     static std::vector<Operation> shuffle(const std::vector<Operation>& operations);
 };
 
-#endif // SHUFFLER_H
+#endif // SHUFFLER_H_INCLUDED

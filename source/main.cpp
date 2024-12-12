@@ -9,10 +9,10 @@
 int main() {
     // Specify the input file with operations
     std::string filename = "operations.txt";
-    
+
     // Use FileParser to parse the operations from the file
     std::vector<Operation> operations = FileParser::parseOperations(filename);
-    
+
     // Check if parsing was successful
     if (operations.empty()) {
         std::cerr << "Failed to parse operations from the file." << std::endl;
@@ -21,7 +21,7 @@ int main() {
 
     // Create DependencyGraph
     DependencyGraph depGraph;
-    
+
     // Add operations to DependencyGraph
     for (const auto& op : operations) {
         depGraph.addOperation(op);

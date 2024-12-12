@@ -1,5 +1,5 @@
-#ifndef FILEPARSER_H
-#define FILEPARSER_H
+#ifndef FILEPARSER_H_INCLUDED
+#define FILEPARSER_H_INCLUDED
 
 #include <vector>
 #include <string>
@@ -11,4 +11,4 @@ public:
     static std::vector<Operation> parseOperations(const std::string& filename);
 };
 
-#endif // FILEPARSER_H
+#endif // FILEPARSER_H_INCLUDED

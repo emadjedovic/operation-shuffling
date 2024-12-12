@@ -1,5 +1,5 @@
-#ifndef TOPOLOGICALSORT_H
-#define TOPOLOGICALSORT_H
+#ifndef TOPOLOGICALSORT_H_INCLUDED
+#define TOPOLOGICALSORT_H_INCLUDED
 
 #include <vector>
 #include "Operation.h"
@@ -11,4 +11,4 @@ public:
     std::vector<Operation> sort(const DependencyGraph& graph);
 };
 
-#endif // TOPOLOGICALSORT_H
+#endif // TOPOLOGICALSORT_H_INCLUDED
