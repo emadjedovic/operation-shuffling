@@ -7,6 +7,8 @@ void testConstructorAndGetters() {
     string output = "result";
     Operation op(inputs, output);
 
+    // If the condition evaluates to false, the program terminates
+    // and reports the failed condition along with information to help debug.
     assert(op.getInputs().size() == 3);
     assert(op.getInputs()[0] == "a");
     assert(op.getInputs()[1] == "b");
