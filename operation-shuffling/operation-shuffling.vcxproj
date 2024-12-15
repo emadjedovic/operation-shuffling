@@ -19,11 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Operation.h" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="OperationsGraph.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Operation.cpp" />
-    <ClCompile Include="test_Operation.cpp" />
+    <ClInclude Include="OperationsGraph.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
