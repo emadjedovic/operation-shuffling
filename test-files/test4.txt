@@ -1,5 +1,8 @@
 a=fun(b,c)
 d=fun(b)
 e=fun(c)
+some1=fun(bee)
+some2=fun(elk)
+some3=fun(tea)
 f=fun(d,e)
 g=fun(a,f)

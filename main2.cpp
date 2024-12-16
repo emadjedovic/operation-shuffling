@@ -8,12 +8,12 @@
 #include <random>
 #include <stdexcept>
 #include <sstream>
-#include <cstdlib>  // For getenv
-#include <direct.h> // For _getcwd on Windows
+#include <cstdlib>
+#include <direct.h>
 
 using namespace std;
 
-// Function to get the current working directory dynamically
+// boilerplate
 string getCurrentWorkingDirectory()
 {
 #ifdef _WIN32
@@ -32,7 +32,7 @@ struct Operation
     int label;
     vector<string> inputs;
     vector<string> outputs;
-    string originalExpression; // Store the original input expression
+    string originalExpression;
 
     Operation(int l, vector<string> in, vector<string> out, const string &expr)
         : label(l), inputs(in), outputs(out), originalExpression(expr) {}
@@ -41,11 +41,11 @@ struct Operation
 class OperationsGraph
 {
     vector<Operation> operations;
-    unordered_map<int, int> inDegree;        // Map to handle arbitrary labels
-    unordered_map<int, vector<int>> adjList; // Adjacency list to handle arbitrary labels
-    unordered_map<string, int> lastProducer;
+    unordered_map<int, int> inDegree; // can we use vector<int> instead?
+    unordered_map<int, vector<int>> adjList; // can we use vector<int> instead?
+    unordered_map<string, int> lastProducer; // what is this? rename it for better understanding
 
-    void sortZeroInDegreeOps(vector<int> &ops)
+    void shuffleZeroIndegreeOps(vector<int> &ops)
     {
         random_device rd;
         mt19937 g(rd());
@@ -74,9 +74,7 @@ public:
 
         // Update lastProducer for outputs
         for (const auto &output : op.outputs)
-        {
             lastProducer[output] = op.label;
-        }
     }
 
     vector<string> topologicalSort()
@@ -93,24 +91,23 @@ public:
             }
         }
 
-        unordered_set<int> sortedSet; // To track sorted operations
+        unordered_set<int> sortedSet;
 
         while (!q.empty())
         {
-            vector<int> currentZeroInDegreeOps;
+            vector<int> currentZeroIndegreeOps;
 
             // Gather all current zero in-degree operations
             while (!q.empty())
             {
-                currentZeroInDegreeOps.push_back(q.front());
+                currentZeroIndegreeOps.push_back(q.front());
                 q.pop();
             }
 
-            // Sort or process these in the correct order respecting dependencies
-            sortZeroInDegreeOps(currentZeroInDegreeOps);
+            // with respect to dependencies
+            shuffleZeroIndegreeOps(currentZeroIndegreeOps);
 
-            // Process each operation with zero in-degree
-            for (const auto &current : currentZeroInDegreeOps)
+            for (const auto &current : currentZeroIndegreeOps)
             {
                 sortedOps.push_back(operations[current].originalExpression);
                 sortedSet.insert(current);
@@ -129,6 +126,7 @@ public:
 
         if (sortedOps.size() != operations.size())
         {
+            // cout something instead of throwing errors
             throw runtime_error("Circular dependency detected.");
         }
 
@@ -136,7 +134,6 @@ public:
     }
 };
 
-// Function to parse an input line into an Operation
 Operation parseInput(const string &line, int label)
 {
     stringstream ss(line);
@@ -145,6 +142,7 @@ Operation parseInput(const string &line, int label)
 
     if (equalsPos == string::npos)
     {
+        // cout something instead of throwig errors
         throw invalid_argument("Invalid input format. Missing '='.");
     }
 
