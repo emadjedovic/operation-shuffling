@@ -62,6 +62,7 @@ int main()
     try
     {
         vector<string> sortedOps = graph.topSortWithShuffle();
+        cout<<"sortedOps size: "<<sortedOps.size()<<endl;
         cout << "\nOBFUSCATED:\n";
         for (const auto &op : sortedOps)
             cout << op << endl;

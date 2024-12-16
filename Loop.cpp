@@ -27,13 +27,16 @@ class OperationsGraph
 private:
     vector<Operation> operations;
     vector<int> inDegree;
-    vector<vector<int>> adjList;
+    vector<vector<Operation>> adjList;
     unordered_map<string, int> variableLastOrigin;
     vector<unordered_set<string>> definedVarsStack;
     unordered_map<string, int> variableScopeMap;
     void shuffleOperations(vector<Operation> &ops);
     vector<string> processingVars;
     bool isCircularDependency(const string &var);
+
+    // Static variable to track the next available label
+    static int nextLabel;
 
 public:
     vector<string> topSortWithShuffle();
@@ -43,6 +46,8 @@ public:
     void enterLoopScope();
     void exitLoopScope(const unordered_set<string> &outerScope);
 };
+
+int OperationsGraph::nextLabel = 0;
 
 bool OperationsGraph::isCircularDependency(const string &var)
 {
@@ -62,17 +67,9 @@ void OperationsGraph::exitLoopScope(const unordered_set<string> &outerScope)
 
 void OperationsGraph::shuffleOperations(vector<Operation> &ops)
 {
-    cout << "Before shuffle:" << endl;
-    for (const auto &op : ops)
-        cout << op.originalExpression << " ";
     random_device rd;
     mt19937 g(rd());
     shuffle(ops.begin(), ops.end(), g);
-
-    cout << "After shuffle:" << endl;
-    for (const auto &op : ops)
-        cout << op.originalExpression << " ";
-    cout << endl;
 }
 
 vector<string> OperationsGraph::topSortWithShuffle()
@@ -80,9 +77,30 @@ vector<string> OperationsGraph::topSortWithShuffle()
     vector<string> newOrder;
     queue<Operation> q;
 
+    cout << "operations.size: " << operations.size() << endl;
+    
+    // Debugging inDegree
+    cout << "inDegree before processing:\n";
+    for (int i = 0; i < inDegree.size(); ++i)
+    {
+        cout << "inDegree[" << i << "]: " << inDegree[i] << endl;
+    }
+    cout<<"adjlist[0].size: "<<adjList[0].size()<<endl;
+    cout<<"AdjList:\n";
+    for (int i = 0; i < adjList.size(); ++i)
+    {
+        for(int j=0; j<adjList[i].size(); j++)
+        cout << "adjList[" << i << "]["<<j<<"]: " << adjList[i][j].label << endl;
+    }
+
+    // Initialize queue with operations that have no incoming dependencies (inDegree == 0)
     for (const auto &op : operations)
+    {
         if (inDegree[op.label] == 0)
+        {
             q.push(op);
+        }
+    }
 
     while (!q.empty())
     {
@@ -92,41 +110,60 @@ vector<string> OperationsGraph::topSortWithShuffle()
             currentZeroIndegreeOps.push_back(q.front());
             q.pop();
         }
-        cout << "Before shuffle (all operations):" << endl;
-        for (const auto &op : operations)
-            cout << op.originalExpression << " ";
-        cout << endl;
 
+        // Shuffle operations with in-degree of 0
         shuffleOperations(currentZeroIndegreeOps);
 
-        cout << "After shuffle (all operations):" << endl;
-        for (const auto &op : operations)
-            cout << op.originalExpression << " ";
-        cout << endl;
-
+        // Process each operation
         for (const auto &current : currentZeroIndegreeOps)
         {
+            cout << "operations[current.label].originalExpression: " << operations[current.label].originalExpression << endl;
+
             newOrder.push_back(operations[current.label].originalExpression);
+
+            // Process neighbors (dependencies)
+            cout<<"adjList[current.label].label = "<<adjList[current.label][0].label<<endl;
             for (const auto &neighbor : adjList[current.label])
             {
-                inDegree[neighbor]--;
-                if (inDegree[neighbor] == 0)
-                    q.push(operations[neighbor]);
+                cout << "Processing neighbor: " << neighbor.originalExpression << endl;
+
+                inDegree[neighbor.label]--;  // Decrease the in-degree for the dependent operation
+                if (inDegree[neighbor.label] == 0)
+                {
+                    q.push(neighbor);  // If in-degree is now 0, push it to the queue
+                }
             }
         }
     }
 
-    if (newOrder.size() != operations.size())
-        throw runtime_error("Error: Circular dependency detected.");
+    cout << "newOrder size: " << newOrder.size() << endl;
+    cout << "operations size: " << operations.size() << endl;
 
+    if (newOrder.size() != operations.size())
+    {
+        throw runtime_error("Error: Circular dependency detected.");
+    }
+
+    cout << "Returning newOrder with size: " << newOrder.size() << endl;
     return newOrder;
 }
 
+
 void OperationsGraph::validateAndAddOperation(const Operation &op, vector<Operation> &destination)
 {
+    int operationLabel = nextLabel++; // Assign current label, then increment it
+
+    // Add the operation to the destination list with the new label
+    Operation opWithLabel = op; // Make a copy of the operation
+    opWithLabel.label = operationLabel;
+    if (operations.size() <= operationLabel)
+    {
+        // Push the operation to the main operations list
+        operations.push_back(opWithLabel); // Now the operations vector is updated
+    }
+
     if (definedVarsStack.empty())
     {
-        cout << "[ERROR] definedVarsStack is empty, initializing first scope." << endl;
         definedVarsStack.push_back(unordered_set<string>());
     }
 
@@ -157,20 +194,50 @@ void OperationsGraph::validateAndAddOperation(const Operation &op, vector<Operat
         {
             if (definedVarsStack.empty())
             {
-                cout << "[ERROR] definedVarsStack is empty!" << endl;
-                return; // Exit or handle the error gracefully
+                cout << "definedVarsStack is empty!" << endl;
+                // return; // Exit or handle the error gracefully
             }
             definedVarsStack.back().insert(inputVar);
             variableScopeMap[inputVar] = definedVarsStack.size() - 1;
         }
     }
 
-    destination.push_back(op);
+    destination.push_back(opWithLabel);
+
+    // Dynamically resize adjList to ensure we have a corresponding entry for the new operation
+    if (adjList.size() <= operationLabel)
+    {
+        adjList.resize(operationLabel + 1);
+    }
+    if (inDegree.size() <= operationLabel)
+    {
+        inDegree.resize(operationLabel + 1);
+    }
 
     for (const string &outputVar : op.outputs)
     {
         definedVarsStack.back().insert(outputVar);
         variableScopeMap[outputVar] = definedVarsStack.size() - 1; // Track this output variable in the current scope
+
+        // Now, for each operation that depends on this outputVar, we increment their inDegree
+        for (int i = 0; i < operations.size(); ++i)
+        {
+            for (const string &inputVar : operations[i].inputs)
+            {
+                if (inputVar == outputVar)
+                {
+                    // Increment the inDegree for any operation that depends on this outputVar
+                    if (i >= inDegree.size())
+                        inDegree.resize(i + 1, 0); // Resize inDegree if needed
+                    inDegree[i]++;
+
+                    // Add the dependent operation to the adjacency list of the current operation
+                    adjList[operationLabel-1].push_back(operations[i]);
+                    // Debug: print adjacency list
+                    cout << "Adding neighbor: " << operations[i].originalExpression << " to " << opWithLabel.originalExpression << endl;
+                }
+            }
+        }
     }
 
     for (const string &inputVar : op.inputs)
@@ -184,10 +251,6 @@ void OperationsGraph::shuffleAndValidateLoop(vector<Operation> &loopOps, vector<
     vector<Operation> shuffledOps(loopOps.begin() + 1, loopOps.end() - 1);
 
     shuffleOperations(shuffledOps);
-
-    cout << "Shuffled loop operations:" << endl;
-    for (const auto &op : shuffledOps)
-        cout << op.originalExpression << endl;
 
     vector<Operation> validatedOps = {forBegin};
     for (Operation &op : shuffledOps)
