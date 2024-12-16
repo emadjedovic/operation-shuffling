@@ -1,0 +1,6 @@
+a,b=Operation(c,d,e)
+d,f=Operation(b,h)
+s=Operation(d,k)
+d=Operation(s,t)
+y,g=Operation(u,v)
+b=Operation(d,g)

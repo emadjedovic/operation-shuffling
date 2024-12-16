@@ -1,0 +1,5 @@
+a=fun(b,c)
+d=fun(b)
+e=fun(c)
+f=fun(d,e)
+g=fun(a,f)

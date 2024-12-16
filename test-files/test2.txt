@@ -1,0 +1,5 @@
+a,b=Op(c,d)
+x,y=Op(e,f)
+e=Op(b,y)
+c=Op(d)
+e=Op(a,x)

@@ -1,0 +1,5 @@
+a,b=+(c,d)
+x,y=-(e,f)
+c=C(d)
+e=square(x)
+c=double(b)
