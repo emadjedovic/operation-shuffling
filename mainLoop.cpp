@@ -1,7 +1,11 @@
+#include <iostream>
 #include <fstream>
 #include "Loop.cpp"
 #include <direct.h> // for _getcwd
 
+using namespace std;
+
+// Helper function to get the current working directory
 string getCurrentWorkingDirectory()
 {
 #ifdef _WIN32
@@ -22,12 +26,12 @@ int main()
     cout << "Enter '1' for console input or '2' for file input: ";
     int choice;
     cin >> choice;
-    cin.ignore();
+    cin.ignore(); // To clear the newline character left by cin
 
     if (choice == 1)
     {
         cout << "Enter operations (empty line to finish):\n";
-        processInput(cin, graph);
+        processInput(cin, graph); // Process console input
     }
     else if (choice == 2)
     {
@@ -50,7 +54,7 @@ int main()
         }
 
         cout << "Reading operations from file: " << filePath << endl;
-        processInput(file, graph); // file instead of cin
+        processInput(file, graph); // Process file input
         file.close();
     }
     else
@@ -62,7 +66,6 @@ int main()
     try
     {
         vector<string> sortedOps = graph.topSortWithShuffle();
-        cout<<"sortedOps size: "<<sortedOps.size()<<endl;
         cout << "\nOBFUSCATED:\n";
         for (const auto &op : sortedOps)
             cout << op << endl;

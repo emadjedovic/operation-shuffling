@@ -37,13 +37,12 @@ private:
     vector<string> processingVars;
     bool isCircularDependency(const string &var);
 
-    // Static variable to track the next available label
     static int nextLabel;
 
 public:
     OperationsGraph()
     {
-        adjList.resize(1000); // Example: Reserve space for 1000 operations
+        adjList.resize(1000); // Reserve space for 1000 operations
         inDegree.resize(1000);
     }
 
@@ -53,54 +52,115 @@ public:
     void shuffleAndValidateLoop(vector<Operation> &loopOps);
     void enterLoopScope();
     void exitLoopScope(const unordered_set<string> &outerScope);
+    void processSubgraph(const vector<Operation> &loopOps);
+
+    void addOperation(Operation &op, vector<Operation> &loopOps, bool insideLoop);
+    int getNextLabel();
 };
 
 int OperationsGraph::nextLabel = 0;
 
+int OperationsGraph::getNextLabel()
+{
+    return nextLabel++; // Return the current label and then increment it
+}
+
+void OperationsGraph::addOperation(Operation &op, vector<Operation> &loopOps, bool insideLoop)
+{
+    cout << "[DEBUG] Adding operation: " << op.originalExpression << endl;
+
+    if (insideLoop)
+    {
+        cout << "[DEBUG] Operation " << op.originalExpression << " is inside a loop." << endl;
+    }
+
+    for (const auto &dep : op.inputs)
+    {
+        cout << "[DEBUG] Operation " << op.originalExpression << " depends on variable: " << dep << endl;
+    }
+
+    // Add operation to the vector or graph
+    loopOps.push_back(op);
+    operations.push_back(op);
+}
+
 bool OperationsGraph::isCircularDependency(const string &var)
 {
-    return find(processingVars.begin(), processingVars.end(), var) != processingVars.end();
+    cout << "[DEBUG] Checking if " << var << " is part of the current processing stack." << endl;
+
+    bool isCircular = find(processingVars.begin(), processingVars.end(), var) != processingVars.end();
+
+    if (isCircular)
+    {
+        cout << "[DEBUG] Circular dependency detected for variable: " << var << endl;
+    }
+    else
+    {
+        cout << "[DEBUG] No circular dependency for variable: " << var << endl;
+    }
+
+    return isCircular;
 }
 
 void OperationsGraph::enterLoopScope()
 {
-    definedVarsStack.push_back(definedVarsStack.back()); // Copy outer scope
+    cout << "[DEBUG] Entering loop scope. Creating a new empty scope." << endl;
+
+    // Before creating a new scope, log the current state of defined variables
+    cout << "[DEBUG] Current definedVarsStack size: " << definedVarsStack.size() << endl;
+    if (!definedVarsStack.empty())
+    {
+        cout << "[DEBUG] Current defined variables: ";
+        for (const auto &var : definedVarsStack.back())
+        {
+            cout << var << " ";
+        }
+        cout << endl;
+    }
+
+    // Create a new empty scope for the loop
+    definedVarsStack.push_back(unordered_set<string>());
+
+    cout << "[DEBUG] New definedVarsStack size: " << definedVarsStack.size() << endl;
+    cout << "[DEBUG] Loop scope initialized. No variables defined yet in this scope." << endl;
 }
 
 void OperationsGraph::exitLoopScope(const unordered_set<string> &outerScope)
 {
-    definedVarsStack.pop_back(); // Remove inner scope
+    cout << "[DEBUG] Exiting loop scope. Current definedVarsStack size: " << definedVarsStack.size() << endl;
 
-    // Restore variable mappings to the outer scope
-    for (const auto &var : outerScope)
+    if (definedVarsStack.size() > 1)
     {
-        if (variableScopeMap.find(var) != variableScopeMap.end())
-        {
-            variableScopeMap[var] = definedVarsStack.size() - 1;
-        }
+        cout << "[DEBUG] Removing loop scope from stack." << endl;
+        definedVarsStack.pop_back(); // Pop the loop scope
     }
 
-    // Retain variables that are still used outside the loop
-    unordered_set<string> retainedVars;
-    for (const auto &var : variableScopeMap)
+    // Debug: Check the state of the variableScopeMap before cleaning up
+    cout << "[DEBUG] Current state of variableScopeMap before cleanup: " << endl;
+    for (const auto &entry : variableScopeMap)
     {
-        if (outerScope.find(var.first) != outerScope.end())
-        {
-            retainedVars.insert(var.first);
-        }
+        cout << "Variable: " << entry.first << " Scope: " << entry.second << endl;
     }
 
-    // Remove invalid mappings while retaining outer-scope variables
+    // Clean up variables that are not in the outer scope
     for (auto it = variableScopeMap.begin(); it != variableScopeMap.end();)
     {
-        if (retainedVars.find(it->first) == retainedVars.end())
+        if (outerScope.find(it->first) == outerScope.end())
         {
-            it = variableScopeMap.erase(it);
+            cout << "[DEBUG] Removing variable " << it->first << " from scope map." << endl;
+            it = variableScopeMap.erase(it); // Remove variables not part of the outer scope
         }
         else
         {
             ++it;
         }
+    }
+
+    // Debug: Check the state of variableScopeMap after cleanup
+    cout << "[DEBUG] ExitLoopScope complete. Remaining variableScopeMap size: " << variableScopeMap.size() << endl;
+    for (const auto &entry : variableScopeMap)
+    {
+        cout << "Variable: " << entry.first << " Scope: " << entry.second << endl;
     }
 }
 
@@ -118,14 +178,9 @@ vector<string> OperationsGraph::topSortWithShuffle()
 
     cout << "operations.size: " << operations.size() << endl;
 
-    // Initialize queue with operations that have no incoming dependencies (inDegree == 0)
     for (const auto &op : operations)
-    {
         if (inDegree[op.label] == 0)
-        {
             q.push(op);
-        }
-    }
 
     while (!q.empty())
     {
@@ -136,54 +191,40 @@ vector<string> OperationsGraph::topSortWithShuffle()
             q.pop();
         }
 
-        // Shuffle operations with in-degree of 0
         shuffleOperations(currentZeroIndegreeOps);
 
-        // Process each operation
         for (const auto &current : currentZeroIndegreeOps)
         {
-            cout << "current.label: " << current.label << endl;
-            cout << "operations[current.label].originalExpression: " << operations[current.label].originalExpression << endl;
-
             newOrder.push_back(operations[current.label].originalExpression);
 
             for (const auto &neighbor : adjList[current.label])
             {
-                cout << "Processing neighbor: " << neighbor.originalExpression << endl;
-
-                inDegree[neighbor.label]--; // Decrease the in-degree for the dependent operation
+                inDegree[neighbor.label]--;
                 if (inDegree[neighbor.label] == 0)
                 {
-                    q.push(neighbor); // If in-degree is now 0, push it to the queue
+                    q.push(neighbor);
                 }
             }
         }
     }
 
-    cout << "newOrder size: " << newOrder.size() << endl;
-    cout << "operations size: " << operations.size() << endl;
-
     if (newOrder.size() != operations.size())
     {
         throw runtime_error("Error: Circular dependency detected.");
     }
+    cout << "newOrder size: " << newOrder.size() << endl;
 
-    cout << "Returning newOrder with size: " << newOrder.size() << endl;
     return newOrder;
 }
 
 void OperationsGraph::validateAndAddOperation(const Operation &op)
 {
-    int operationLabel = nextLabel++; // Assign current label, then increment it
-    cout << "operationLabel: " << operationLabel << endl;
-
-    // Add the operation to the destination list with the new label
-    Operation opWithLabel = op; // Make a copy of the operation
+    int operationLabel = nextLabel++;
+    Operation opWithLabel = op;
     opWithLabel.label = operationLabel;
-    if (operations.size() <= operationLabel)
-    {
-        operations.push_back(opWithLabel);
-    }
+    cout << "operations size from validateAndAddOperations: " << operations.size() << endl;
+    cout << "operationLabel: " << operationLabel << endl;
+    operations.push_back(opWithLabel);
 
     if (definedVarsStack.empty())
     {
@@ -202,13 +243,12 @@ void OperationsGraph::validateAndAddOperation(const Operation &op)
             if (definedVarsStack[i].find(inputVar) != definedVarsStack[i].end())
             {
                 found = true;
-                variableScopeMap[inputVar] = i; // Update to correct scope
+                variableScopeMap[inputVar] = i;
                 break;
             }
         }
         if (!found)
         {
-            // Variable not found, add it to the current scope
             definedVarsStack.back().insert(inputVar);
             variableScopeMap[inputVar] = definedVarsStack.size() - 1;
         }
@@ -216,33 +256,23 @@ void OperationsGraph::validateAndAddOperation(const Operation &op)
 
     for (const string &inputVar : op.inputs)
     {
-        cout << "inputVar: " << inputVar << endl;
-        bool isNewVar = variableScopeMap.find(inputVar) == variableScopeMap.end(); // Check if the variable is new
+        bool isNewVar = variableScopeMap.find(inputVar) == variableScopeMap.end();
 
-        if (isNewVar)
+        if (!isNewVar)
         {
-            // This is a new variable, so don't increment inDegree yet.
-            // You can optionally track new variables if needed.
-            cout << "is new variable!" << endl;
-        }
-        else
-        {
-            cout << "operations size: " << operations.size() << endl;
-
             for (const string &outputVar : op.outputs)
             {
-                // Update variable scope map
                 variableScopeMap[outputVar] = definedVarsStack.size() - 1;
-
-                // Map variable to operation
                 variableToOperationMap[outputVar] = operationLabel;
 
-                // Handle dependencies for input variables
-                if (variableToOperationMap.count(inputVar))
+                for (const string &inputVar : op.inputs)
                 {
-                    int dependentOpLabel = variableToOperationMap[inputVar];
-                    adjList[dependentOpLabel].push_back(opWithLabel);
-                    inDegree[operationLabel]++;
+                    if (variableToOperationMap.count(inputVar))
+                    {
+                        int dependentOpLabel = variableToOperationMap[inputVar];
+                        adjList[dependentOpLabel].push_back(opWithLabel);
+                        inDegree[operationLabel]++;
+                    }
                 }
             }
         }
@@ -252,22 +282,57 @@ void OperationsGraph::validateAndAddOperation(const Operation &op)
         processingVars.erase(remove(processingVars.begin(), processingVars.end(), inputVar), processingVars.end());
 }
 
+void OperationsGraph::processSubgraph(const vector<Operation> &loopOps)
+{
+    vector<Operation> shuffledOps = loopOps;
+    shuffleOperations(shuffledOps);
+    for (const Operation &op : shuffledOps)
+    {
+        validateAndAddOperation(op);
+    }
+}
+
 void OperationsGraph::shuffleAndValidateLoop(vector<Operation> &loopOps)
 {
+    if (loopOps.size() < 2)
+        return;
+
     Operation forBegin = loopOps.front();
     Operation forEnd = loopOps.back();
-    vector<Operation> shuffledOps(loopOps.begin() + 1, loopOps.end() - 1);
 
-    shuffleOperations(shuffledOps);
+    queue<Operation> loopQueue;
+    loopQueue.push(forBegin);
 
-    vector<Operation> validatedOps = {forBegin};
-    for (Operation &op : shuffledOps)
+    vector<Operation> innerOps(loopOps.begin() + 1, loopOps.end() - 1);
+    shuffleOperations(innerOps);
+
+    for (Operation &op : innerOps)
+    {
+        loopQueue.push(op);
+    }
+
+    loopQueue.push(forEnd);
+
+    while (!loopQueue.empty())
+    {
+        Operation op = loopQueue.front();
+        loopQueue.pop();
         validateAndAddOperation(op);
-    validatedOps.push_back(forEnd);
+    }
+
+    processSubgraph(innerOps); // Process loop subgraph
 }
 
 Operation parseInput(const string &line, int label)
 {
+    // Skip the check for '=' for special operations like FOR_BEGIN or FOR_END
+    if (line.find("FOR_BEGIN") != string::npos || line.find("FOR_END") != string::npos)
+    {
+        // Handle FOR_BEGIN and FOR_END without parsing the usual input format
+        return Operation(label, {}, {}, line); // Just return the operation as is with no input/output
+    }
+
+    // Now handle normal operation with '='
     stringstream ss(line);
     string outputs, inputs;
     size_t equalsPos = line.find('=');
@@ -303,67 +368,68 @@ Operation parseInput(const string &line, int label)
     return Operation(label, inputVarsList, outputVars, line);
 }
 
-static const int MAX_RECURSION_DEPTH = 1000; // Example limit
-
 void OperationsGraph::processInputRecursively(istream &inputStream, int &label, vector<Operation> &loopOps, bool insideLoop)
 {
     static int recursionDepth = 0;
     recursionDepth++;
-    if (recursionDepth > MAX_RECURSION_DEPTH)
+
+    // MAX_RECURSION_DEPTH
+    if (recursionDepth > 100000)
     {
         throw std::runtime_error("Error: Maximum recursion depth exceeded.");
     }
 
     string line;
-    unordered_set<string> outerScopeDefinedVars = definedVarsStack.empty() ? unordered_set<string>() : definedVarsStack.back();
+
+    // Capture outer scope variables for reference
+    unordered_set<string> outerScopeVars = definedVarsStack.empty() ? unordered_set<string>() : definedVarsStack.back();
 
     while (getline(inputStream, line))
     {
         if (line.empty())
             continue;
 
+        // Handle FOR_BEGIN: Enter loop scope and start new subgraph
         if (line.find("FOR_BEGIN") != string::npos)
         {
             enterLoopScope();
-            Operation forBeginOp(label++, {}, {}, "FOR_BEGIN");
-            if (insideLoop)
-                loopOps.push_back(forBeginOp);
-            else
-                validateAndAddOperation(forBeginOp);
 
+            Operation forBeginOp(label++, {}, {}, "FOR_BEGIN");
+            addOperation(forBeginOp, loopOps, insideLoop);
+
+            // Process nested loop operations recursively
             vector<Operation> nestedLoopOps;
             processInputRecursively(inputStream, label, nestedLoopOps, true);
 
-            exitLoopScope(outerScopeDefinedVars);
-            shuffleAndValidateLoop(nestedLoopOps);
+            shuffleAndValidateLoop(nestedLoopOps); // Shuffle and validate loop operations
+
+            // Add the shuffled operations back to the loop operations
+            for (Operation &op : nestedLoopOps)
+                addOperation(op, loopOps, insideLoop);
+
+            exitLoopScope(outerScopeVars); // Restore outer scope after the loop ends
             continue;
         }
 
+        // Handle FOR_END: End the loop
         if (line.find("FOR_END") != string::npos)
         {
-            if (insideLoop)
-            {
-                loopOps.push_back(Operation(label++, {}, {}, "FOR_END"));
-                exitLoopScope(outerScopeDefinedVars);
-                return;
-            }
-            else
-            {
-                Operation forEndOp(label++, {}, {}, "FOR_END");
-                validateAndAddOperation(forEndOp);
-            }
-
-            continue;
+            // Add FOR_END and exit the loop
+            Operation forEndOp(label++, {}, {}, "FOR_END");
+            addOperation(forEndOp, loopOps, insideLoop);
+            recursionDepth--;
+            return; // Correctly exit
         }
 
+        // Handle Regular Operation (not FOR_BEGIN or FOR_END)
         try
         {
-            Operation op = parseInput(line, label);
-
-            if (insideLoop)
-                loopOps.push_back(op);
-            else
-                validateAndAddOperation(op);
+            // Skip the parsing logic for FOR_BEGIN/END, as they are not regular operations
+            if (line.find('=') != string::npos)
+            {
+                Operation op = parseInput(line, label);
+                addOperation(op, loopOps, insideLoop);
+            }
         }
         catch (const invalid_argument &e)
         {
@@ -371,41 +437,64 @@ void OperationsGraph::processInputRecursively(istream &inputStream, int &label, 
         }
     }
 
+    // Final cleanup for scope at the end of the input
+    if (!insideLoop)
+    {
+        exitLoopScope(outerScopeVars);
+    }
+
     recursionDepth--;
-    cout << "Outer scope before exiting loop: ";
-    for (const auto &var : outerScopeDefinedVars)
-        cout << var << " ";
-    cout << endl;
-
-    cout << "Variables in definedVarsStack: ";
-    for (const auto &scope : definedVarsStack)
-    {
-        for (const auto &var : scope)
-            cout << var << " ";
-        cout << "| ";
-    }
-    cout << endl;
-
-    // Propagate variables defined inside the loop to the outer scope
-    for (const auto &var : definedVarsStack.back())
-    {
-        outerScopeDefinedVars.insert(var);
-    }
-
-    loopOps.clear();
-    exitLoopScope(outerScopeDefinedVars);
 }
 
-void processInput(istream &inputStream, OperationsGraph &graph)
+void processInput(istream &input, OperationsGraph &graph)
 {
-    if (!inputStream)
-    {
-        cout << "[ERROR] Input stream is not valid!" << endl;
-        return;
-    }
-
     string line;
-    int label = 0;
-    vector<Operation> loopOps;
-    graph.processInputRecursively(inputStream, label, loopOps, false);
+    while (getline(input, line))
+    {
+        // Debugging: Print the raw line that is being processed
+        cout << "[DEBUG] Processing line: " << line << endl;
+
+        if (line.empty())
+        {
+            cout << "[DEBUG] Skipping empty line." << endl;
+            continue; // Skip empty lines
+        }
+
+        try
+        {
+            // Debugging: Attempt to parse the operation
+            cout << "[DEBUG] Attempting to parse operation from line: " << line << endl;
+
+            // Since you have a function 'parseInput', use it to parse the line
+            int label = graph.getNextLabel(); // Assuming there's a function to get the next label.
+            vector<Operation> loopOps;        // Assuming an empty vector for operations in the loop (if inside a loop).
+            bool insideLoop = false;          // Set to true if processing inside a loop.
+
+            // Parse the line to get the operation
+            Operation op = parseInput(line, label);
+
+            // Debugging: Print parsed operation details
+            cout << "[DEBUG] Parsed operation: " << op.originalExpression << endl;
+            cout << "[DEBUG] Operation label: " << op.label << endl;
+            cout << "[DEBUG] Inputs: ";
+            for (const auto &inputVar : op.inputs)
+                cout << inputVar << " ";
+            cout << endl;
+
+            cout << "[DEBUG] Outputs: ";
+            for (const auto &outputVar : op.outputs)
+                cout << outputVar << " ";
+            cout << endl;
+
+            // Now, add the operation to the graph
+            cout << "[DEBUG] Adding operation to the graph." << endl;
+            graph.addOperation(op, loopOps, insideLoop);
+        }
+        catch (const exception &e)
+        {
+            // Debugging: Print the error message when parsing fails
+            cout << "[ERROR] Error processing line: " << e.what() << endl;
+            cout << "[DEBUG] Line that caused the error: " << line << endl;
+        }
+    }
 }
