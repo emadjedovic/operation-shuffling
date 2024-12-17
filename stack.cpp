@@ -8,8 +8,17 @@
 #include <random>
 #include <unordered_map>
 #include <queue>
+#include <sstream>
 
 using namespace std;
+
+class LoopMarker
+{
+public:
+    string type; // "FOR_BEGIN" or "FOR_END"
+
+    LoopMarker(const string &type) : type(type) {}
+};
 
 struct Operation
 {
@@ -22,7 +31,6 @@ struct Operation
         : id(id), inputs(inputs), outputs(outputs), expression(expr) {}
 };
 
-
 class OperationsGraph
 {
 private:
@@ -31,9 +39,9 @@ private:
     unordered_map<string, int> variableToOperationMap; // Map to track the operation of a variable
     unordered_map<int, vector<int>> adjList;           // Adjacency list for graph representation
     vector<int> inDegree;                              // In-degree of nodes for topological sort
+    vector<LoopMarker> loopMarkers;
 
 public:
-    // Constructor to initialize adjacency list and in-degree vector
     OperationsGraph() : inDegree(1000, 0) {}
 
     static int nextLabel;
@@ -100,7 +108,46 @@ public:
         shuffle(ops.begin(), ops.end(), g);
     }
 
-    // Add operation to the current loop or global list
+    void handleForBegin()
+    {
+        loopMarkers.push_back(LoopMarker("FOR_BEGIN"));
+        loopStack.push(vector<Operation>());
+    }
+
+    void handleForEnd()
+    {
+        if (!loopStack.empty())
+        {
+            vector<Operation> loopOps = loopStack.top();
+
+            // Debugging output: Operations inside the loop
+            cout << "\nInside FOR loop before shuffling:\n";
+            for (const auto &op : loopOps)
+                cout << op.expression << endl;
+
+            // Shuffle the loop operations
+            shuffleOperationsStruct(loopOps);
+
+            // Debugging output: Operations after shuffling
+            cout << "\nInside FOR loop after shuffling:\n";
+            for (const auto &op : loopOps)
+                cout << op.expression << endl;
+
+            // Add FOR_BEGIN and loop operations
+            operations.push_back(Operation(-1, {}, {}, "FOR_BEGIN(5)"));
+            for (const auto &op : loopOps)
+            {
+                operations.push_back(op);
+            }
+
+            // Add FOR_END
+            operations.push_back(Operation(-1, {}, {}, "FOR_END"));
+
+            // Pop the loop stack to close the loop scope
+            loopStack.pop();
+        }
+    }
+
     void addOperation(const Operation &op)
     {
         if (!loopStack.empty())
@@ -109,10 +156,9 @@ public:
         }
         else
         {
-            operations.push_back(op); // Add operation to the global list
+            operations.push_back(op); // Add operation outside any loop
         }
 
-        // Map variables to the operation they belong to
         int opIndex = operations.size() - 1;
         for (const string &inputVar : op.inputs)
         {
@@ -123,33 +169,12 @@ public:
             }
         }
 
-        // Track each output variable to this operation
         for (const string &outputVar : op.outputs)
         {
             variableToOperationMap[outputVar] = opIndex;
         }
     }
 
-    // Handle FOR_BEGIN
-    void handleForBegin()
-    {
-        loopStack.push(vector<Operation>{Operation(nextLabel++, {}, {}, "FOR_BEGIN")}); // Start a new loop scope
-    }
-
-    // Handle FOR_END - shuffle the loop's operations
-    void handleForEnd()
-    {
-        if (!loopStack.empty())
-        {
-            vector<Operation> &loopOps = loopStack.top();
-            shuffleOperationsStruct(loopOps);
-            operations.insert(operations.end(), loopOps.begin(), loopOps.end()); // Move operations to global list
-            operations.push_back(Operation(nextLabel++, {}, {}, "FOR_END"));
-            loopStack.pop();                                                     // End the loop scope
-        }
-    }
-
-    // Function to sort operations and apply shuffling obfuscation
     vector<string> topSortWithShuffle()
     {
         if (operations.empty())
@@ -157,7 +182,6 @@ public:
             throw runtime_error("No operations to process.");
         }
 
-        // Perform topological sort on the operations
         vector<string> result;
         queue<int> q;
 
@@ -170,7 +194,6 @@ public:
             }
         }
 
-        // Process nodes in topological order
         while (!q.empty())
         {
             vector<int> zeroInDegreeOps;
@@ -180,14 +203,13 @@ public:
                 q.pop();
             }
 
-            // Shuffle the operations with zero in-degree for obfuscation
+            // Shuffle the operations with zero in-degree
             shuffleOperations(zeroInDegreeOps);
 
             for (int opIndex : zeroInDegreeOps)
             {
                 result.push_back(operations[opIndex].expression);
 
-                // Reduce in-degree for neighboring operations and enqueue them if they reach in-degree 0
                 for (int neighborIndex : adjList[opIndex])
                 {
                     if (--inDegree[neighborIndex] == 0)
@@ -214,9 +236,7 @@ public:
         {
             result += vec[i];
             if (i != vec.size() - 1)
-            {
                 result += delimiter;
-            }
         }
         return result;
     }
