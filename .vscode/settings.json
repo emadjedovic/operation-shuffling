@@ -4,6 +4,7 @@
         "iostream": "cpp",
         "unordered_set": "cpp",
         "ostream": "cpp",
-        "vector": "cpp"
+        "vector": "cpp",
+        "xstring": "cpp"
     }
 }

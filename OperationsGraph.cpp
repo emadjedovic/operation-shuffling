@@ -17,9 +17,9 @@ struct Operation
     int label;
     vector<string> inputs;
     vector<string> outputs;
-    string originalExpression;
+    string operationString;
 
-    Operation(int l, vector<string> in, vector<string> out, const string &expr);
+    Operation(int l, vector<string> in, vector<string> out, const string &expr) : label(l), inputs(in), outputs(out), operationString(expr) {}
 };
 
 class OperationsGraph
@@ -27,25 +27,23 @@ class OperationsGraph
 private:
     vector<Operation> operations;
     vector<int> inDegree;
-    vector<vector<int>> adjList;
-    unordered_map<string, int> variableLastOrigin; // for input/output relationships
+    vector<vector<int>> adjList;                   // cuvamo samo indekse operacija da ne bismo bezveze zauzimali memoriju sa cijelom Operation strukturom
+    unordered_map<string, int> variableLastOrigin; // da utvrdimo veze (zavisnosti) jedne operacije od neke prethodne
 
     void shuffleZeroIndegreeOps(vector<int> &ops);
 
 public:
     void addOperation(const Operation &op);
     vector<string> topSortWithShuffle();
+    void obfuscate();
 };
 
 // IMPLEMENTATIONS
 
-Operation::Operation(int l, vector<string> in, vector<string> out, const string &expr)
-    : label(l), inputs(in), outputs(out), originalExpression(expr) {}
-
 void OperationsGraph::shuffleZeroIndegreeOps(vector<int> &ops)
 {
     random_device rd;
-    mt19937 g(rd()); // we can manually enter a seed number here
+    mt19937 g(rd()); // umjesto nasumicnog rd() mozemo ubaciti seed recimo g(41)
     shuffle(ops.begin(), ops.end(), g);
 }
 
@@ -55,34 +53,37 @@ void OperationsGraph::addOperation(const Operation &op)
     inDegree.push_back(0);
     adjList.push_back(vector<int>());
 
-    // Check dependencies for inputs
-    for (const auto &input : op.inputs)
+    // zabiljeziti nove zavisnosti za dodanu operaciju
+    for (const string &input : op.inputs)
     {
         if (variableLastOrigin.find(input) != variableLastOrigin.end())
         {
+            // input za ovu operaciju je negdje ranije output za neku prethodnu operaciju
             int variableOriginOp = variableLastOrigin[input];
 
-            // Add dependency
+            // dodajemo granu iz operacije koja je modifikovala ovu varijablu koja je input za trenutnu operaciju
             adjList[variableOriginOp].push_back(op.label);
+            // povecavamo ulazni indeks trenutne operacije
             inDegree[op.label]++;
         }
     }
 
-    // Update variableLastOrigin for outputs
+    // prolazimo kroz output varijable i biljezimo trenutnu operaciju kao onu koja je zadnja utjecala na te varijable
     for (const auto &output : op.outputs)
         variableLastOrigin[output] = op.label;
 }
 
+// modifikacija topoloskog sortiranja
 vector<string> OperationsGraph::topSortWithShuffle()
 {
     vector<string> newOrder;
     queue<int> q;
 
-    // Start with operations that have zero in-degree (no dependencies)
+    // stavljamo u red operacije koje ne ovisi od prethodnih
+    // ove operacije cemo razmijesati
     for (const auto &op : operations)
         if (inDegree[op.label] == 0)
             q.push(op.label);
-
 
     while (!q.empty())
     {
@@ -94,88 +95,101 @@ vector<string> OperationsGraph::topSortWithShuffle()
             q.pop();
         }
 
-        // shuffle only zero in-degree operations (no dependencies)
+        // kljucni dio
         shuffleZeroIndegreeOps(currentZeroIndegreeOps);
 
-        for (const auto &current : currentZeroIndegreeOps)
+        // nakon sto smo operacije izmijesali, dodajemo ih u rezultat newOrder
+        // operationString je originalni format operacije koji smo upisali u konzolu
+        for (const int &current : currentZeroIndegreeOps)
         {
-            newOrder.push_back(operations[current].originalExpression);
+            newOrder.push_back(operations[current].operationString);
+            // kada smo jednom dodali operacije vise ih ne diramo
+            // smanjujemo ulazni stepen svih iducih operacija koje zavise od ovih, tako da ako njihov indegree postane u tom slucaju 0 onda njih mozemo izmijesati i dodati kao narednu turu u rezultat newOrder
 
-            // Update in-degree of all dependent operations
-            for (const auto &neighbor : adjList[current])
+            for (const int &neighbor : adjList[current])
             {
                 inDegree[neighbor]--;
                 if (inDegree[neighbor] == 0)
                     q.push(neighbor);
             }
         }
+
+        // ponavljamo sve dok ne nestane operacija ulaznog stepena 0
     }
 
+    // ako nismo obradili sve operacije onda imamo beskonacnu petlju u programu
     if (newOrder.size() != operations.size())
     {
         cout << "Error: Circular dependency detected." << endl;
-        exit(1); // end program
+        exit(1); // prekidamo program
     }
 
     return newOrder;
 }
 
+// izvlacimo podatke iz operacije koja je unesena, dodajemo joj id "label"
 Operation parseInput(const string &line, int label)
 {
     stringstream ss(line);
-    string outputs, inputs;
-    size_t equalsPos = line.find('=');
+    string outputs, inputs; // stringovi iz kojih izvlacimo varijable
+    size_t equalSign = line.find('=');
 
-    if (equalsPos == string::npos)
+    // dosli do kraja stringa bez naznake znaka "="
+    // potrebno za identifikaciju izlaznih varijabli
+    if (equalSign == string::npos)
     {
         cout << "Error: Invalid input format. Missing '='." << endl;
-        exit(1); // end program
+        exit(1);
     }
 
-    outputs = line.substr(0, equalsPos);
-    inputs = line.substr(equalsPos + 1);
+    outputs = line.substr(0, equalSign); // do znaka jednakosti
+    inputs = line.substr(equalSign + 1); // ovo treba dodatno preraditi uzimajuci u obzir zagrade ()
 
     // Trim spaces
     outputs.erase(remove(outputs.begin(), outputs.end(), ' '), outputs.end());
     inputs.erase(remove(inputs.begin(), inputs.end(), ' '), inputs.end());
 
-    // Parse outputs (comma-separated)
-    vector<string> outputVars;
-    stringstream outputSS(outputs);
-    string output;
+    vector<string> outputVars;      // vektor izlaznih varijabli
+    stringstream outputSS(outputs); // outputs nije vise string
+    string output;                  // varijabla
+    // outputs are comma-separated
     while (getline(outputSS, output, ','))
         outputVars.push_back(output);
 
-    // Parse inputs (inside parentheses)
     size_t start = inputs.find('(');
     size_t end = inputs.find(')');
 
+    // nismo pronasli zagrade (ovo je nuzno jer operacije tu dobijaju parametre nad kojim djeluju)
     if (start == string::npos || end == string::npos || start >= end)
     {
         cout << "Error: Invalid input format. Missing parentheses." << endl;
-        exit(1); // end program
+        exit(1);
     }
 
+    // slicna procedura kao za izlazne varijable
     string inputVars = inputs.substr(start + 1, end - start - 1);
-    vector<string> inputVarsList;
+    vector<string> inputVarsList; // vektor ulaznih varijabli
     stringstream inputSS(inputVars);
-    string input;
+    string input; // varijabla
     while (getline(inputSS, input, ','))
         inputVarsList.push_back(input);
 
+    // "izvucena" operacija sa svim neophodnih podacima
+    // s ovim formatom mozemo raditi
     return Operation(label, inputVarsList, outputVars, line);
 }
 
-void processInput(std::istream &inputStream, OperationsGraph &graph)
+// iz jedne linije (konzola) ili liniju po liniju iz jednog fajla
+// modificiramo graf kako bismo
+void processInput(istream &inputStream, OperationsGraph &graph)
 {
     string line;
-    int label = 0;
+    int label = 0; // prva operacija
 
     while (getline(inputStream, line))
     {
         if (line.empty())
-            continue;
-
+            break;
         try
         {
             Operation op = parseInput(line, label);
@@ -187,4 +201,15 @@ void processInput(std::istream &inputStream, OperationsGraph &graph)
             cout << "Error: " << e.what() << endl;
         }
     }
+}
+
+// konacna funkcija
+void OperationsGraph::obfuscate()
+{
+    vector<string> result = topSortWithShuffle();
+
+    cout << "\nNEW SAME CODE (OBFUSCATED):\n\n";
+    for (const auto &op : result)
+        cout << op << endl;
+    cout << endl;
 }
