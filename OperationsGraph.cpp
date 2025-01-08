@@ -69,7 +69,8 @@ void OperationsGraph::addOperation(const Operation &op)
         }
     }
 
-    // prolazimo kroz output varijabl
+    // prolazimo kroz output varijable
+    // zadnji update ovdje!
     for (const auto &output : op.outputs)
     {
         // proci kroz prethodne operacije i za svaku provjeriti input varijable
