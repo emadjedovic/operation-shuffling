@@ -1,0 +1,8 @@
+a=Op1(x)
+b=Op2(a)
+a=Op3(y)
+c=Op4(a)
+d=Op5(x)
+e=Op6(y)
+b=Op2(a)
+e=Op6(y)

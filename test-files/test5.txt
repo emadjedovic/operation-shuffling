@@ -1,0 +1,4 @@
+a=Op1(x)
+b=Op2(a)
+a=Op3(y)
+c=Op4(a)

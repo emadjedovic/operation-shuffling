@@ -62,15 +62,46 @@ void OperationsGraph::addOperation(const Operation &op)
             int variableOriginOp = variableLastOrigin[input];
 
             // dodajemo granu iz operacije koja je modifikovala ovu varijablu koja je input za trenutnu operaciju
+            // origin operacija mora doci prije trenutne operacije
             adjList[variableOriginOp].push_back(op.label);
             // povecavamo ulazni indeks trenutne operacije
             inDegree[op.label]++;
         }
     }
 
-    // prolazimo kroz output varijable i biljezimo trenutnu operaciju kao onu koja je zadnja utjecala na te varijable
+    // prolazimo kroz output varijable
+    // zadnji update ovdje!
     for (const auto &output : op.outputs)
-        variableLastOrigin[output] = op.label;
+    {
+        // proci kroz prethodne operacije i za svaku provjeriti input varijable
+        // ukoliko se neka prethodna input varijable poklapa s ovom output onda
+        // dodati granu iz te prethodne operacije u trenutnu
+
+        for (size_t prevOp = 0; prevOp < operations.size(); ++prevOp)
+        {
+            if (prevOp == op.label)
+                continue; // ignorisemo trenutnu operaciju
+
+            const Operation &prevOpObj = operations[prevOp];
+            for (const string &input : prevOpObj.inputs)
+            {
+                // ako se ulazna varijabla prethodne operacije poklapa sa trenutnom izlaznom varijablom
+                if (input == output)
+                {
+
+                    // dodajemo zavisnost: prethodna operacija mora biti izvrsena prije trenutne
+                    adjList[prevOp].push_back(op.label);
+                    inDegree[op.label]++; // Povećavamo in-degree trenutne operacije
+
+                    // biljezimo trenutnu operaciju kao onu koja je zadnja utjecala na varijable
+                    variableLastOrigin[output] = op.label;
+                }
+            }
+        }
+    }
+
+    // biljezimo trenutnu operaciju kao onu koja je zadnja utjecala na varijable
+    // variableLastOrigin[output] = op.label;
 }
 
 // modifikacija topoloskog sortiranja

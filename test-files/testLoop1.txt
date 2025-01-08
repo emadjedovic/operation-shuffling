@@ -1,8 +1,0 @@
-a,b=Operation(c,d,e)
-d,f=Operation(b,h)
-FOR_BEGIN(5)
-s=Operation(d,k)
-d=Operation(s,t)
-FOR_END
-y,g=Operation(u,v)
-b=Operation(d,g)
