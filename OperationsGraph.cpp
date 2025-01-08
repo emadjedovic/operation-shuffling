@@ -76,12 +76,11 @@ void OperationsGraph::addOperation(const Operation &op)
         // ukoliko se neka prethodna input varijable poklapa s ovom output onda
         // dodati granu iz te prethodne operacije u trenutnu
 
-        for (int prevOp = 0; prevOp < operations.size(); ++prevOp)
+        for (size_t prevOp = 0; prevOp < operations.size(); ++prevOp)
         {
             if (prevOp == op.label)
                 continue; // ignorisemo trenutnu operaciju
 
-            cout << "Output: " << output << " has dependencies on: "<<endl;
             const Operation &prevOpObj = operations[prevOp];
             for (const string &input : prevOpObj.inputs)
             {
@@ -89,7 +88,6 @@ void OperationsGraph::addOperation(const Operation &op)
                 if (input == output)
                 {
 
-                    cout << "Op " << prevOp << " ";
                     // dodajemo zavisnost: prethodna operacija mora biti izvrsena prije trenutne
                     adjList[prevOp].push_back(op.label);
                     inDegree[op.label]++; // Povećavamo in-degree trenutne operacije
@@ -100,7 +98,6 @@ void OperationsGraph::addOperation(const Operation &op)
             }
         }
     }
-    cout << endl;
 
     // biljezimo trenutnu operaciju kao onu koja je zadnja utjecala na varijable
     // variableLastOrigin[output] = op.label;
