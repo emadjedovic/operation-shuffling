@@ -26,7 +26,7 @@ class OperationsGraph
 {
 private:
     vector<Operation> operations;
-    vector<int> inDegree;
+    vector<int> inDegree;                          // za topolosko sortiranje
     vector<vector<int>> adjList;                   // cuvamo samo indekse operacija da ne bismo bezveze zauzimali memoriju sa cijelom Operation strukturom
     unordered_map<string, int> variableLastOrigin; // da utvrdimo veze (zavisnosti) jedne operacije od neke prethodne
 
@@ -77,7 +77,7 @@ void OperationsGraph::addOperation(const Operation &op)
         // ukoliko se neka prethodna input varijable poklapa s ovom output onda
         // dodati granu iz te prethodne operacije u trenutnu
 
-        for (size_t prevOp = 0; prevOp < operations.size(); ++prevOp)
+        for (size_t prevOp = 0; prevOp < operations.size(); prevOp++)
         {
             if (prevOp == op.label)
                 continue; // ignorisemo trenutnu operaciju
@@ -88,10 +88,9 @@ void OperationsGraph::addOperation(const Operation &op)
                 // ako se ulazna varijabla prethodne operacije poklapa sa trenutnom izlaznom varijablom
                 if (input == output)
                 {
-
                     // dodajemo zavisnost: prethodna operacija mora biti izvrsena prije trenutne
                     adjList[prevOp].push_back(op.label);
-                    inDegree[op.label]++; // Povećavamo in-degree trenutne operacije
+                    inDegree[op.label]++; // povecavamo in-degree trenutne operacije
 
                     // biljezimo trenutnu operaciju kao onu koja je zadnja utjecala na varijable
                     variableLastOrigin[output] = op.label;
@@ -110,7 +109,7 @@ vector<string> OperationsGraph::topSortWithShuffle()
     vector<string> newOrder;
     queue<int> q;
 
-    // stavljamo u red operacije koje ne ovisi od prethodnih
+    // stavljamo u red operacije koje ne ovise od nikakvih prethodnih
     // ove operacije cemo razmijesati
     for (const auto &op : operations)
         if (inDegree[op.label] == 0)
@@ -176,7 +175,7 @@ Operation parseInput(const string &line, int label)
     outputs = line.substr(0, equalSign); // do znaka jednakosti
     inputs = line.substr(equalSign + 1); // ovo treba dodatno preraditi uzimajuci u obzir zagrade ()
 
-    // Trim spaces
+    // trim spaces
     outputs.erase(remove(outputs.begin(), outputs.end(), ' '), outputs.end());
     inputs.erase(remove(inputs.begin(), inputs.end(), ' '), inputs.end());
 
@@ -210,13 +209,15 @@ Operation parseInput(const string &line, int label)
     return Operation(label, inputVarsList, outputVars, line);
 }
 
-// iz jedne linije (konzola) ili liniju po liniju iz jednog fajla
-// modificiramo graf kako bismo
+// citamo iz konzole ili iz fajla niz operacija, za svaku pozivamo parseInput
+// modificiramo (kreiramo) graf u toku postupka
 void processInput(istream &inputStream, OperationsGraph &graph)
 {
     string line;
     int label = 0; // prva operacija
 
+    // sve dok ne obradimo sve operacije
+    // one line == one operation to parse
     while (getline(inputStream, line))
     {
         if (line.empty())

@@ -80,7 +80,7 @@ The project consists of the following files:
 The `test-files/` directory contains text files that store operation sequences. These files are used as input when the program is run with the file input option. The format for each operation in the file is:
 
 ```
-output1,output2 = Operation(input1,input2)
+output1,...,outputn = Operation(input1,...,inputm)
 ```
 
 For example, a file might look like this:

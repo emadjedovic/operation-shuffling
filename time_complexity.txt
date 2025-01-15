@@ -1,23 +1,9 @@
------------------------------------- ENG
-
 Reading the input stream from the console or a file has O(N) complexity for N lines (operations). The time complexity is primarily determined by the main obfuscate() function, which essentially reduces to topSortWithShuffle().
 
 To find dependencies (edges) for a single input/output variable, we need no more than O(1) because we use a hash map. Therefore, if the average number of input variables is i and the average number of output variables is o, for N operations, we get a complexity of O(N*(i+o)).
 
 Topological sorting requires O(N+E) time, where N is the number of operations, and E is the number of edges (dependencies).
 
-The sorting internally uses the Fisher-Yates algorithm, which requires O(N) time for N operations.
+The shuffling internally uses the Fisher-Yates algorithm, which requires O(N) time for N operations.
 
 All in all, we have a complexity of O(N*(i+o)) + O(N+E+N). Given that E can, in the worst case, reach up to N^2, the total time complexity is O(N*(i+o) + N^2).
-
------------------------------------- HRV
-
-Čitanje ulaznog toka s konzole ili iz fajla je O(N) kompleksnost za N linija (operacija). Vremensku kompleksnost određuje dominantno glavna obfuscate() funkcija, koja se u biti svodi na topSortWithShuffle().
-
-Da nađemo zavisnosti (grane) za jednu input/output varijablu ne treba nam više od O(1) jer koristimo hash mapu. Znači, ako je prosječan broj input varijabli i, a prosječan broj output varijabli o, to za N operacija, imamo kompleksnost O(N*(i+o)).
-
-Topološko sortiranje zahtjeva O(N+E) vremena, gdje je N broj operacija a E broj grana (zavisnosti).
-
-Sortiranje interno koristi Fisher-Yates algoritam koji zahtjeva O(N) vremena za N operacija.
-
-Sve u svemu, imamo kompleksnost O(N*(i+o))+O(N+E+N), s tim da E u najgorem slučaju ide do N^2, pa je ukupna vremenska kompleksnost O(N*(i+o)+N^2).
